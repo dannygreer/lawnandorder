@@ -16,6 +16,7 @@
   --color-gold: #f9a825;
   --color-slate-dark: #1e293b;
   --font-sans: var(--font-sans);
+  --font-heading: var(--font-heading);
   --font-display: 'Inter', ui-sans-serif, system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -136,8 +137,13 @@ html {
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body), Georgia, 'Times New Roman', serif;
   }
   html {
     @apply font-sans;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading), ui-sans-serif, system-ui, sans-serif;
+    font-weight: 700;
   }
 }
