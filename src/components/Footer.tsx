@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="grid gap-12 md:grid-cols-2">
           {/* Brand */}
           <div>
-            <h3 className="text-2xl font-bold">Lindale Lawn Co.</h3>
+            <h3 className="text-2xl font-bold">Lawn & Order</h3>
             <p className="mt-3 text-sm text-green-200">
               Professional lawn care services for Lindale, TX and surrounding
               areas. Insured, reliable, and dedicated to keeping your yard
@@ -27,7 +27,7 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-3 text-sm text-green-100">
                 <Mail className="h-4 w-4 shrink-0 text-green-300" />
-                hello@lindalelawnco.com
+                hello@lawnandorderETX.com
               </li>
               <li className="flex items-center gap-3 text-sm text-green-100">
                 <MapPin className="h-4 w-4 shrink-0 text-green-300" />
@@ -39,7 +39,7 @@ export default function Footer() {
 
         <div className="mt-12 border-t border-green-800 pt-8 text-center text-sm text-green-300">
           <p>
-            &copy; {new Date().getFullYear()} Lindale Lawn Co. All rights
+            &copy; {new Date().getFullYear()} Lawn & Order All rights
             reserved.
           </p>
         </div>

@@ -1,175 +1,412 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   DollarSign,
-  Search,
-  Filter,
+  Loader2,
   CheckCircle,
-  Clock,
-  AlertCircle,
-  Download,
+  AlertTriangle,
+  CreditCard,
+  Send,
+  RotateCcw,
 } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
-interface Invoice {
-  id: number;
-  customer: string;
-  date: string;
-  amount: number;
-  status: "paid" | "pending" | "overdue";
-  method: string;
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Job {
+  id: string;
+  customer_id: string;
+  customer?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    address: string;
+    stripe_payment_method_id?: string | null;
+    phone?: string;
+  };
+  scheduled_date: string;
+  status: string;
+  service_cost?: number;
+  billed_at?: string | null;
 }
 
-const initialInvoices: Invoice[] = [
-  { id: 1001, customer: "Johnson Family", date: "2026-03-15", amount: 50, status: "paid", method: "Venmo" },
-  { id: 1002, customer: "Smith Residence", date: "2026-03-15", amount: 35, status: "paid", method: "Cash" },
-  { id: 1003, customer: "Williams Home", date: "2026-03-15", amount: 65, status: "pending", method: "Zelle" },
-  { id: 1004, customer: "Davis Property", date: "2026-03-14", amount: 50, status: "paid", method: "Cash App" },
-  { id: 1005, customer: "Brown Family", date: "2026-03-14", amount: 45, status: "paid", method: "Check" },
-  { id: 1006, customer: "Garcia Home", date: "2026-03-13", amount: 70, status: "overdue", method: "Venmo" },
-  { id: 1007, customer: "Miller Residence", date: "2026-03-13", amount: 30, status: "paid", method: "Cash" },
-  { id: 1008, customer: "Wilson Property", date: "2026-03-12", amount: 50, status: "paid", method: "Zelle" },
-  { id: 1009, customer: "Anderson Home", date: "2026-03-12", amount: 50, status: "pending", method: "Cash App" },
-  { id: 1010, customer: "Taylor Residence", date: "2026-03-11", amount: 75, status: "paid", method: "Venmo" },
-];
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function BillingPage() {
-  const [invoices, setInvoices] = useState(initialInvoices);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [billingIds, setBillingIds] = useState<Set<string>>(new Set());
 
-  const filtered = invoices.filter((inv) => {
-    const matchesSearch = inv.customer.toLowerCase().includes(search.toLowerCase());
-    const matchesStatus = statusFilter === "all" || inv.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // ---------------------------------------------------------------------------
+  // Fetch
+  // ---------------------------------------------------------------------------
 
-  const totalPaid = invoices.filter((i) => i.status === "paid").reduce((sum, i) => sum + i.amount, 0);
-  const totalPending = invoices.filter((i) => i.status === "pending").reduce((sum, i) => sum + i.amount, 0);
-  const totalOverdue = invoices.filter((i) => i.status === "overdue").reduce((sum, i) => sum + i.amount, 0);
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/jobs");
+      if (!res.ok) throw new Error("Failed to fetch jobs");
+      const data: Job[] = await res.json();
+      setJobs(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
-  const statusIcon = {
-    paid: <CheckCircle className="h-4 w-4 text-green-500" />,
-    pending: <Clock className="h-4 w-4 text-yellow-500" />,
-    overdue: <AlertCircle className="h-4 w-4 text-red-500" />,
-  };
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
-  const statusStyle = {
-    paid: "bg-green-100 text-green-700",
-    pending: "bg-yellow-100 text-yellow-700",
-    overdue: "bg-red-100 text-red-700",
-  };
+  // ---------------------------------------------------------------------------
+  // Derived data
+  // ---------------------------------------------------------------------------
 
-  const markPaid = (id: number) => {
-    setInvoices(invoices.map((inv) => (inv.id === id ? { ...inv, status: "paid" as const } : inv)));
-  };
+  const awaitingBilling = jobs.filter(
+    (j) => j.status === "completed" && !j.billed_at
+  );
+
+  // Customers with scheduled/completed jobs but no stripe payment method
+  const missingPaymentCustomers = (() => {
+    const seen = new Set<string>();
+    const result: Array<{
+      id: string;
+      name: string;
+      phone?: string;
+      jobCount: number;
+    }> = [];
+    jobs.forEach((j) => {
+      if (
+        j.customer &&
+        !j.customer.stripe_payment_method_id &&
+        (j.status === "scheduled" || j.status === "completed") &&
+        !seen.has(j.customer.id)
+      ) {
+        seen.add(j.customer.id);
+        const cJobs = jobs.filter(
+          (jj) =>
+            jj.customer_id === j.customer_id &&
+            (jj.status === "scheduled" || jj.status === "completed")
+        );
+        result.push({
+          id: j.customer.id,
+          name: `${j.customer.first_name} ${j.customer.last_name}`,
+          phone: j.customer.phone,
+          jobCount: cJobs.length,
+        });
+      }
+    });
+    return result;
+  })();
+
+  // ---------------------------------------------------------------------------
+  // Actions
+  // ---------------------------------------------------------------------------
+
+  async function billJob(id: string) {
+    setBillingIds((prev) => new Set(prev).add(id));
+    try {
+      const res = await fetch("/api/admin/jobs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: "billed",
+          billed_at: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to bill job");
+      toast.success("Job billed successfully");
+      fetchJobs();
+    } catch {
+      toast.error("Failed to bill job");
+    } finally {
+      setBillingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
+    }
+  }
+
+  function sendSetupLink(customerId: string, name: string) {
+    toast.success(`Payment setup link sent to ${name}`);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  function customerName(job: Job) {
+    if (job.customer) {
+      return `${job.customer.first_name} ${job.customer.last_name}`;
+    }
+    return "Unknown";
+  }
+
+  const totalAwaitingAmount = awaitingBilling.reduce(
+    (sum, j) => sum + (j.service_cost ?? 0),
+    0
+  );
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Billing</h2>
-          <p className="text-sm text-gray-500">Manage invoices and payments</p>
-        </div>
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900">Billing Queue</h2>
+        <p className="text-sm text-gray-500">
+          Manage billing for completed jobs
+        </p>
       </div>
 
-      {/* Summary Cards */}
+      {/* Summary cards */}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-green-200 bg-green-50 p-5">
-          <div className="flex items-center gap-3">
-            <CheckCircle className="h-5 w-5 text-green-600" />
-            <span className="text-sm font-medium text-green-800">Collected</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-green-900">${totalPaid}</p>
-        </div>
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
-          <div className="flex items-center gap-3">
-            <Clock className="h-5 w-5 text-yellow-600" />
-            <span className="text-sm font-medium text-yellow-800">Pending</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-yellow-900">${totalPending}</p>
-        </div>
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5">
-          <div className="flex items-center gap-3">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <span className="text-sm font-medium text-red-800">Overdue</span>
-          </div>
-          <p className="mt-2 text-2xl font-bold text-red-900">${totalOverdue}</p>
-        </div>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-amber-50">
+              <DollarSign className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {awaitingBilling.length}
+              </p>
+              <p className="text-xs text-gray-500">Awaiting Billing</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-green-50">
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                ${totalAwaitingAmount.toFixed(0)}
+              </p>
+              <p className="text-xs text-gray-500">Pending Amount</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="flex items-center gap-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-red-50">
+              <AlertTriangle className="h-5 w-5 text-red-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {missingPaymentCustomers.length}
+              </p>
+              <p className="text-xs text-gray-500">Missing Payment Info</p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search customer..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-900 focus:border-green-brand focus:outline-none"
-          />
+      {/* Loading / Error */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-6 w-6 animate-spin text-green-brand" />
+          <span className="ml-2 text-sm text-gray-500">Loading...</span>
         </div>
-        <div className="flex gap-2">
-          {["all", "paid", "pending", "overdue"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`rounded-lg px-4 py-2.5 text-sm font-medium capitalize transition-colors ${
-                statusFilter === status
-                  ? "bg-green-brand text-white"
-                  : "bg-white text-gray-700 border border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
+      )}
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Invoice</th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Customer</th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Date</th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Amount</th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Method</th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">Status</th>
-              <th className="px-6 py-3 text-right font-medium text-gray-500">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filtered.map((inv) => (
-              <tr key={inv.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 font-mono text-gray-500">#{inv.id}</td>
-                <td className="px-6 py-4 font-medium text-gray-900">{inv.customer}</td>
-                <td className="px-6 py-4 text-gray-700">{inv.date}</td>
-                <td className="px-6 py-4 font-semibold text-gray-900">${inv.amount}</td>
-                <td className="px-6 py-4 text-gray-700">{inv.method}</td>
-                <td className="px-6 py-4">
-                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyle[inv.status]}`}>
-                    {statusIcon[inv.status]}
-                    {inv.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  {inv.status !== "paid" && (
-                    <button
-                      onClick={() => markPaid(inv.id)}
-                      className="rounded-lg bg-green-50 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-100"
-                    >
-                      Mark Paid
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={fetchJobs}
+            className="ml-2"
+          >
+            <RotateCcw className="mr-1 h-3 w-3" />
+            Retry
+          </Button>
+        </div>
+      )}
+
+      {!loading && !error && (
+        <>
+          {/* Awaiting Billing */}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-amber-600" />
+                Awaiting Billing
+                <Badge className="ml-2 bg-amber-100 text-amber-700">
+                  {awaitingBilling.length}
+                </Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {awaitingBilling.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-400">
+                  All caught up! No jobs awaiting billing.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50">
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">
+                          Customer
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">
+                          Date
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">
+                          Amount
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {awaitingBilling.map((job) => (
+                        <tr key={job.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {customerName(job)}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">
+                            {format(
+                              parseISO(job.scheduled_date),
+                              "MMM d, yyyy"
+                            )}
+                          </td>
+                          <td className="px-4 py-3 font-semibold text-gray-900">
+                            ${(job.service_cost ?? 0).toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="sm"
+                              onClick={() => billJob(job.id)}
+                              disabled={billingIds.has(job.id)}
+                              className="bg-green-brand text-white hover:bg-forest-light"
+                            >
+                              {billingIds.has(job.id) ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <CheckCircle className="mr-1 h-3 w-3" />
+                              )}
+                              Bill Now
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Failed Charges */}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-red-500" />
+                Failed Charges
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="py-8 text-center text-sm text-gray-400">
+                <CreditCard className="mx-auto h-8 w-8 text-gray-300" />
+                <p className="mt-2">
+                  No failed charges. Stripe webhook integration coming soon.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Missing Payment Info */}
+          <Card>
+            <CardHeader className="border-b">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-orange-500" />
+                Missing Payment Info
+                {missingPaymentCustomers.length > 0 && (
+                  <Badge className="ml-2 bg-orange-100 text-orange-700">
+                    {missingPaymentCustomers.length}
+                  </Badge>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {missingPaymentCustomers.length === 0 ? (
+                <div className="py-8 text-center text-sm text-gray-400">
+                  All customers have payment info on file.
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-gray-100 bg-gray-50">
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">
+                          Customer
+                        </th>
+                        <th className="px-4 py-3 text-left font-medium text-gray-500">
+                          Active Jobs
+                        </th>
+                        <th className="px-4 py-3 text-right font-medium text-gray-500">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {missingPaymentCustomers.map((c) => (
+                        <tr key={c.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <p className="font-medium text-gray-900">
+                              {c.name}
+                            </p>
+                            {c.phone && (
+                              <p className="text-xs text-gray-500">
+                                {c.phone}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-gray-700">
+                            {c.jobCount} jobs
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => sendSetupLink(c.id, c.name)}
+                            >
+                              <Send className="mr-1 h-3 w-3" />
+                              Send Setup Link
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      )}
     </div>
   );
 }

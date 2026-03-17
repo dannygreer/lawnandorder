@@ -1,65 +1,168 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { format } from "date-fns";
 import {
   Search,
   Plus,
-  Phone,
-  MapPin,
-  MoreHorizontal,
-  X,
+  Loader2,
+  Users,
+  Pencil,
+  UserX,
 } from "lucide-react";
+import { toast } from "sonner";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { cn } from "@/lib/utils";
 
-interface Customer {
-  id: number;
-  name: string;
-  phone: string;
-  email: string;
-  address: string;
-  lotSize: "small" | "medium" | "large";
-  price: number;
-  route: string;
-  status: "active" | "paused" | "inactive";
-  paymentMethod: string;
+interface Job {
+  id: string;
+  scheduled_date: string;
+  status: string;
 }
 
-const initialCustomers: Customer[] = [
-  { id: 1, name: "Johnson Family", phone: "(903) 555-0101", email: "johnson@email.com", address: "145 Oak St, Lindale", lotSize: "medium", price: 50, route: "Monday - North Lindale", status: "active", paymentMethod: "Venmo" },
-  { id: 2, name: "Smith Residence", phone: "(903) 555-0102", email: "smith@email.com", address: "220 Pine Ave, Lindale", lotSize: "small", price: 35, route: "Monday - North Lindale", status: "active", paymentMethod: "Cash" },
-  { id: 3, name: "Williams Home", phone: "(903) 555-0103", email: "williams@email.com", address: "330 Elm Dr, Lindale", lotSize: "large", price: 65, route: "Tuesday - Downtown", status: "active", paymentMethod: "Zelle" },
-  { id: 4, name: "Davis Property", phone: "(903) 555-0104", email: "davis@email.com", address: "412 Maple Ln, Lindale", lotSize: "medium", price: 50, route: "Tuesday - Downtown", status: "active", paymentMethod: "Cash App" },
-  { id: 5, name: "Brown Family", phone: "(903) 555-0105", email: "brown@email.com", address: "508 Cedar Ct, Lindale", lotSize: "medium", price: 45, route: "Wednesday - New Subdivisions", status: "active", paymentMethod: "Check" },
-  { id: 6, name: "Garcia Home", phone: "(903) 555-0106", email: "garcia@email.com", address: "615 Birch Rd, Lindale", lotSize: "large", price: 70, route: "Thursday - County Road", status: "active", paymentMethod: "Venmo" },
-  { id: 7, name: "Miller Residence", phone: "(903) 555-0107", email: "miller@email.com", address: "720 Walnut Way, Lindale", lotSize: "small", price: 30, route: "Wednesday - New Subdivisions", status: "paused", paymentMethod: "Cash" },
-  { id: 8, name: "Wilson Property", phone: "(903) 555-0108", email: "wilson@email.com", address: "835 Hickory Dr, Lindale", lotSize: "medium", price: 50, route: "Thursday - County Road", status: "active", paymentMethod: "Zelle" },
-];
+interface Customer {
+  id: string;
+  first_name: string;
+  last_name: string;
+  phone: string;
+  email: string | null;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  service_cost: number;
+  service_frequency: string | null;
+  service_notes: string | null;
+  is_active: boolean;
+  payment_confirmed_at: string | null;
+  payment_setup_token: string | null;
+  payment_setup_expires_at: string | null;
+  stripe_customer_id: string | null;
+  created_at: string;
+  jobs: Job[];
+}
 
-const lotSizeLabel = { small: "Small (<0.25 ac)", medium: "Medium (0.25-0.4 ac)", large: "Large (0.5+ ac)" };
+type FilterTab = "all" | "active" | "awaiting" | "inactive";
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState(initialCustomers);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [activeTab, setActiveTab] = useState<FilterTab>("all");
 
-  const filtered = customers.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.address.toLowerCase().includes(search.toLowerCase()) ||
-      c.route.toLowerCase().includes(search.toLowerCase())
-  );
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
 
-  const statusColor = {
-    active: "bg-green-100 text-green-700",
-    paused: "bg-yellow-100 text-yellow-700",
-    inactive: "bg-red-100 text-red-700",
-  };
-
-  const handleDelete = (id: number) => {
-    if (confirm("Are you sure you want to remove this customer?")) {
-      setCustomers(customers.filter((c) => c.id !== id));
+  async function fetchCustomers() {
+    try {
+      const res = await fetch("/api/admin/customers");
+      if (!res.ok) throw new Error("Failed to fetch customers");
+      const data = await res.json();
+      setCustomers(data);
+    } catch {
+      toast.error("Failed to load customers");
+    } finally {
+      setLoading(false);
     }
-  };
+  }
+
+  async function handleDeactivate(id: string, currentlyActive: boolean) {
+    const action = currentlyActive ? "deactivate" : "reactivate";
+    if (!confirm(`Are you sure you want to ${action} this customer?`)) return;
+
+    try {
+      const res = await fetch(`/api/admin/customers/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: !currentlyActive }),
+      });
+      if (!res.ok) throw new Error(`Failed to ${action} customer`);
+      toast.success(`Customer ${action}d successfully`);
+      fetchCustomers();
+    } catch {
+      toast.error(`Failed to ${action} customer`);
+    }
+  }
+
+  function getPaymentStatus(customer: Customer) {
+    if (customer.payment_confirmed_at || customer.stripe_customer_id) {
+      return "card_on_file";
+    }
+    if (customer.payment_setup_token) {
+      return "awaiting_setup";
+    }
+    return "not_sent";
+  }
+
+  function getNextJobDate(customer: Customer): string | null {
+    const now = new Date().toISOString();
+    const upcoming = customer.jobs
+      ?.filter((j) => j.scheduled_date >= now && j.status !== "cancelled")
+      .sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+    return upcoming?.[0]?.scheduled_date ?? null;
+  }
+
+  const filtered = customers
+    .filter((c) => {
+      const term = search.toLowerCase();
+      const fullName = `${c.first_name} ${c.last_name}`.toLowerCase();
+      return (
+        fullName.includes(term) ||
+        c.address.toLowerCase().includes(term) ||
+        c.phone.includes(term)
+      );
+    })
+    .filter((c) => {
+      switch (activeTab) {
+        case "active":
+          return c.is_active;
+        case "awaiting":
+          return getPaymentStatus(c) === "awaiting_setup";
+        case "inactive":
+          return !c.is_active;
+        default:
+          return true;
+      }
+    });
+
+  const tabs: { key: FilterTab; label: string; count: number }[] = [
+    { key: "all", label: "All", count: customers.length },
+    {
+      key: "active",
+      label: "Active",
+      count: customers.filter((c) => c.is_active).length,
+    },
+    {
+      key: "awaiting",
+      label: "Awaiting Payment",
+      count: customers.filter((c) => getPaymentStatus(c) === "awaiting_setup").length,
+    },
+    {
+      key: "inactive",
+      label: "Inactive",
+      count: customers.filter((c) => !c.is_active).length,
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-green-brand" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -68,261 +171,184 @@ export default function CustomersPage() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900">Customers</h2>
           <p className="text-sm text-gray-500">
-            {customers.filter((c) => c.status === "active").length} active
-            customers
+            {customers.filter((c) => c.is_active).length} active customers
           </p>
         </div>
-        <button
-          onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-green-brand px-4 py-2.5 text-sm font-semibold text-white hover:bg-forest-light"
+        <Link
+          href="/admin/customers/new"
+          className={cn(buttonVariants(), "bg-green-brand hover:bg-forest-light")}
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="mr-1.5 h-4 w-4" />
           Add Customer
-        </button>
+        </Link>
       </div>
 
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search by name, address, or route..."
+        <Input
+          placeholder="Search by name, address, or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 py-2.5 pl-10 pr-4 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-brand focus:ring-2 focus:ring-green-brand/20 focus:outline-none"
+          className="pl-10"
         />
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-1 rounded-lg bg-gray-100 p-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              activeTab === tab.key
+                ? "bg-white text-forest shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            {tab.label}
+            <span
+              className={`rounded-full px-1.5 py-0.5 text-xs ${
+                activeTab === tab.key
+                  ? "bg-green-pale text-green-brand"
+                  : "bg-gray-200 text-gray-500"
+              }`}
+            >
+              {tab.count}
+            </span>
+          </button>
+        ))}
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Customer
-              </th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Lot Size
-              </th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Price
-              </th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Route
-              </th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Payment
-              </th>
-              <th className="px-6 py-3 text-left font-medium text-gray-500">
-                Status
-              </th>
-              <th className="px-6 py-3 text-right font-medium text-gray-500">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-50">
-            {filtered.map((customer) => (
-              <tr key={customer.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {customer.name}
-                    </p>
-                    <div className="mt-1 flex items-center gap-1 text-xs text-gray-500">
-                      <MapPin className="h-3 w-3" />
-                      {customer.address}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1 text-xs text-gray-500">
-                      <Phone className="h-3 w-3" />
-                      {customer.phone}
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 text-gray-700">
-                  {lotSizeLabel[customer.lotSize]}
-                </td>
-                <td className="px-6 py-4 font-semibold text-gray-900">
-                  ${customer.price}
-                </td>
-                <td className="px-6 py-4 text-gray-700">{customer.route}</td>
-                <td className="px-6 py-4 text-gray-700">
-                  {customer.paymentMethod}
-                </td>
-                <td className="px-6 py-4">
-                  <span
-                    className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${statusColor[customer.status]}`}
-                  >
-                    {customer.status}
-                  </span>
-                </td>
-                <td className="px-6 py-4 text-right">
-                  <div className="flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => setEditingCustomer(customer)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleDelete(customer.id)}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        {filtered.length === 0 && (
-          <div className="py-12 text-center text-sm text-gray-500">
-            No customers found matching &ldquo;{search}&rdquo;
-          </div>
-        )}
-      </div>
-
-      {/* Add/Edit Modal */}
-      {(showAddModal || editingCustomer) && (
-        <CustomerModal
-          customer={editingCustomer}
-          onClose={() => {
-            setShowAddModal(false);
-            setEditingCustomer(null);
-          }}
-          onSave={(customer) => {
-            if (editingCustomer) {
-              setCustomers(
-                customers.map((c) => (c.id === customer.id ? customer : c))
-              );
-            } else {
-              setCustomers([
-                ...customers,
-                { ...customer, id: Date.now() },
-              ]);
-            }
-            setShowAddModal(false);
-            setEditingCustomer(null);
-          }}
-        />
-      )}
-    </div>
-  );
-}
-
-function CustomerModal({
-  customer,
-  onClose,
-  onSave,
-}: {
-  customer: Customer | null;
-  onClose: () => void;
-  onSave: (customer: Customer) => void;
-}) {
-  const [form, setForm] = useState<Customer>(
-    customer || {
-      id: 0,
-      name: "",
-      phone: "",
-      email: "",
-      address: "",
-      lotSize: "medium",
-      price: 50,
-      route: "Monday - North Lindale",
-      status: "active",
-      paymentMethod: "Cash",
-    }
-  );
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-gray-900">
-            {customer ? "Edit Customer" : "Add Customer"}
+      {filtered.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-xl border border-gray-200 bg-white py-16">
+          <Users className="h-12 w-12 text-gray-300" />
+          <h3 className="mt-4 text-lg font-semibold text-gray-900">
+            {customers.length === 0 ? "No customers yet" : "No matching customers"}
           </h3>
-          <button onClick={onClose}>
-            <X className="h-5 w-5 text-gray-400" />
-          </button>
+          <p className="mt-1 text-sm text-gray-500">
+            {customers.length === 0
+              ? "Add your first customer to get started."
+              : "Try adjusting your search or filters."}
+          </p>
+          {customers.length === 0 && (
+            <Link
+              href="/admin/customers/new"
+              className={cn(
+                buttonVariants(),
+                "mt-4 bg-green-brand hover:bg-forest-light"
+              )}
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Customer
+            </Link>
+          )}
         </div>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            onSave(form);
-          }}
-          className="mt-6 space-y-4"
-        >
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Name</label>
-              <input type="text" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Phone</label>
-              <input type="tel" required value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Email</label>
-            <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Address</label>
-            <input type="text" required value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none" />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Lot Size</label>
-              <select value={form.lotSize} onChange={(e) => setForm({ ...form, lotSize: e.target.value as Customer["lotSize"] })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none">
-                <option value="small">Small</option>
-                <option value="medium">Medium</option>
-                <option value="large">Large</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Price</label>
-              <input type="number" required value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none" />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Status</label>
-              <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as Customer["status"] })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none">
-                <option value="active">Active</option>
-                <option value="paused">Paused</option>
-                <option value="inactive">Inactive</option>
-              </select>
-            </div>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Route</label>
-              <select value={form.route} onChange={(e) => setForm({ ...form, route: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none">
-                <option>Monday - North Lindale</option>
-                <option>Tuesday - Downtown</option>
-                <option>Wednesday - New Subdivisions</option>
-                <option>Thursday - County Road</option>
-                <option>Friday - Overflow</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700">Payment Method</label>
-              <select value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-green-brand focus:outline-none">
-                <option>Cash</option>
-                <option>Check</option>
-                <option>Venmo</option>
-                <option>Cash App</option>
-                <option>Zelle</option>
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-3 pt-4">
-            <button type="button" onClick={onClose} className="rounded-lg px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100">Cancel</button>
-            <button type="submit" className="rounded-lg bg-green-brand px-4 py-2 text-sm font-semibold text-white hover:bg-forest-light">
-              {customer ? "Save Changes" : "Add Customer"}
-            </button>
-          </div>
-        </form>
-      </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-gray-50">
+                <TableHead className="px-4">Name</TableHead>
+                <TableHead className="px-4">Address</TableHead>
+                <TableHead className="px-4">Frequency</TableHead>
+                <TableHead className="px-4">Cost</TableHead>
+                <TableHead className="px-4">Payment</TableHead>
+                <TableHead className="px-4">Next Job</TableHead>
+                <TableHead className="px-4 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((customer) => {
+                const paymentStatus = getPaymentStatus(customer);
+                const nextJob = getNextJobDate(customer);
+
+                return (
+                  <TableRow key={customer.id}>
+                    <TableCell className="px-4">
+                      <Link
+                        href={`/admin/customers/${customer.id}`}
+                        className="font-medium text-forest hover:underline"
+                      >
+                        {customer.first_name} {customer.last_name}
+                      </Link>
+                      <p className="text-xs text-gray-500">{customer.phone}</p>
+                    </TableCell>
+                    <TableCell className="px-4 text-gray-700">
+                      {customer.address}, {customer.city}
+                    </TableCell>
+                    <TableCell className="px-4">
+                      {customer.service_frequency ? (
+                        <Badge variant="secondary" className="bg-green-pale text-green-brand">
+                          {customer.service_frequency}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-gray-400">Not set</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 font-semibold text-gray-900">
+                      ${customer.service_cost}
+                    </TableCell>
+                    <TableCell className="px-4">
+                      {paymentStatus === "card_on_file" && (
+                        <Badge className="bg-green-100 text-green-700 border-green-200">
+                          Card on file
+                        </Badge>
+                      )}
+                      {paymentStatus === "awaiting_setup" && (
+                        <Badge className="bg-amber-100 text-amber-700 border-amber-200">
+                          Awaiting setup
+                        </Badge>
+                      )}
+                      {paymentStatus === "not_sent" && (
+                        <Badge variant="secondary" className="bg-gray-100 text-gray-500">
+                          Not sent
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 text-gray-700">
+                      {nextJob ? (
+                        format(new Date(nextJob), "MMM d, yyyy")
+                      ) : (
+                        <span className="text-xs text-gray-400">None</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Link
+                          href={`/admin/customers/${customer.id}/edit`}
+                          className={cn(
+                            buttonVariants({ variant: "ghost", size: "icon-sm" })
+                          )}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Link>
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() =>
+                            handleDeactivate(customer.id, customer.is_active)
+                          }
+                          title={customer.is_active ? "Deactivate" : "Reactivate"}
+                        >
+                          <UserX
+                            className={`h-3.5 w-3.5 ${
+                              customer.is_active
+                                ? "text-gray-500"
+                                : "text-green-600"
+                            }`}
+                          />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      )}
     </div>
   );
 }

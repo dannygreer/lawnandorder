@@ -1,141 +1,331 @@
 "use client";
 
-import { MapPin, Clock, Users, ChevronRight } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import {
+  GripVertical,
+  MapPin,
+  Navigation,
+  Loader2,
+  Save,
+  RotateCcw,
+} from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
-const routes = [
-  {
-    day: "Monday",
-    area: "North Lindale",
-    color: "bg-blue-500",
-    homes: [
-      { name: "Johnson Family", address: "145 Oak St", time: "7:00 AM", size: "Medium" },
-      { name: "Smith Residence", address: "220 Pine Ave", time: "8:00 AM", size: "Small" },
-      { name: "Anderson Home", address: "310 Oak Ct", time: "9:00 AM", size: "Medium" },
-      { name: "Taylor Residence", address: "415 Pine Dr", time: "10:15 AM", size: "Large" },
-      { name: "Thomas Home", address: "520 Oak Way", time: "11:30 AM", size: "Medium" },
-      { name: "Jackson Yard", address: "625 Pine Ln", time: "12:30 PM", size: "Small" },
-    ],
-  },
-  {
-    day: "Tuesday",
-    area: "Downtown Area",
-    color: "bg-green-500",
-    homes: [
-      { name: "Williams Home", address: "330 Elm Dr", time: "7:00 AM", size: "Large" },
-      { name: "Davis Property", address: "412 Maple Ln", time: "8:15 AM", size: "Medium" },
-      { name: "Rodriguez Home", address: "505 Main St", time: "9:15 AM", size: "Small" },
-      { name: "Lee Residence", address: "618 Commerce Ave", time: "10:00 AM", size: "Medium" },
-      { name: "Walker Property", address: "722 Center Blvd", time: "11:00 AM", size: "Medium" },
-      { name: "Hall Yard", address: "830 Market St", time: "12:00 PM", size: "Large" },
-    ],
-  },
-  {
-    day: "Wednesday",
-    area: "New Subdivisions",
-    color: "bg-purple-500",
-    homes: [
-      { name: "Brown Family", address: "508 Cedar Ct", time: "7:00 AM", size: "Medium" },
-      { name: "Miller Residence", address: "720 Walnut Way", time: "8:00 AM", size: "Small" },
-      { name: "Moore Home", address: "115 Sunset Dr", time: "9:00 AM", size: "Medium" },
-      { name: "Clark Property", address: "228 Sunrise Ln", time: "10:00 AM", size: "Large" },
-      { name: "Lewis Residence", address: "335 Dawn Ct", time: "11:15 AM", size: "Medium" },
-      { name: "Young Yard", address: "440 Twilight Ave", time: "12:15 PM", size: "Small" },
-    ],
-  },
-  {
-    day: "Thursday",
-    area: "County Road Homes",
-    color: "bg-orange-500",
-    homes: [
-      { name: "Garcia Home", address: "615 Birch Rd", time: "7:00 AM", size: "Large" },
-      { name: "Wilson Property", address: "835 Hickory Dr", time: "8:15 AM", size: "Medium" },
-      { name: "Martinez Yard", address: "1020 CR 411", time: "9:15 AM", size: "Large" },
-      { name: "Robinson Home", address: "1150 CR 413", time: "10:30 AM", size: "Medium" },
-      { name: "King Property", address: "1275 CR 415", time: "11:30 AM", size: "Medium" },
-      { name: "Wright Residence", address: "1380 FM 16", time: "12:30 PM", size: "Small" },
-      { name: "Lopez Yard", address: "1450 FM 16", time: "1:15 PM", size: "Medium" },
-      { name: "Hill Home", address: "1560 CR 418", time: "2:00 PM", size: "Large" },
-    ],
-  },
-  {
-    day: "Friday",
-    area: "Overflow / Makeup",
-    color: "bg-gray-500",
-    homes: [
-      { name: "Rain delays", address: "—", time: "—", size: "—" },
-      { name: "New estimates", address: "—", time: "—", size: "—" },
-      { name: "Reschedules", address: "—", time: "—", size: "—" },
-    ],
-  },
-];
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+interface Job {
+  id: string;
+  customer_id: string;
+  customer?: {
+    first_name: string;
+    last_name: string;
+    address: string;
+    lat: number | null;
+    lng: number | null;
+  };
+  scheduled_date: string;
+  status: string;
+  route_order?: number;
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
 
 export default function RoutesPage() {
+  const [selectedDate, setSelectedDate] = useState(
+    format(new Date(), "yyyy-MM-dd")
+  );
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [optimizing, setOptimizing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  // ---------------------------------------------------------------------------
+  // Fetch jobs
+  // ---------------------------------------------------------------------------
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `/api/admin/jobs?startDate=${selectedDate}&endDate=${selectedDate}`
+      );
+      if (!res.ok) throw new Error("Failed to fetch jobs");
+      const data: Job[] = await res.json();
+      // Sort by route_order if available
+      data.sort((a, b) => (a.route_order ?? 999) - (b.route_order ?? 999));
+      setJobs(data);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Unknown error";
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedDate]);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  // ---------------------------------------------------------------------------
+  // Drag & drop reorder
+  // ---------------------------------------------------------------------------
+
+  function handleDragStart(idx: number) {
+    setDragIdx(idx);
+  }
+
+  function handleDragOver(e: React.DragEvent, idx: number) {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === idx) return;
+    const updated = [...jobs];
+    const [moved] = updated.splice(dragIdx, 1);
+    updated.splice(idx, 0, moved);
+    setJobs(updated);
+    setDragIdx(idx);
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Optimize route
+  // ---------------------------------------------------------------------------
+
+  async function optimizeRoute() {
+    setOptimizing(true);
+    try {
+      const res = await fetch("/api/admin/routes/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          date: selectedDate,
+          homeBase: { lat: 32.5154, lng: -95.0428 }, // Default Lindale coords
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to optimize route");
+      const data = await res.json();
+      if (data.jobs) {
+        setJobs(data.jobs);
+      }
+      toast.success("Route optimized");
+    } catch {
+      toast.error("Failed to optimize route");
+    } finally {
+      setOptimizing(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Save order
+  // ---------------------------------------------------------------------------
+
+  async function saveOrder() {
+    setSaving(true);
+    try {
+      const orderedJobs = jobs.map((j, i) => ({ id: j.id, route_order: i + 1 }));
+      const res = await fetch("/api/admin/routes/optimize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ date: selectedDate, saveOrder: orderedJobs }),
+      });
+      if (!res.ok) throw new Error("Failed to save order");
+      toast.success("Route order saved");
+    } catch {
+      toast.error("Failed to save route order");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  function customerName(job: Job) {
+    if (job.customer) {
+      return `${job.customer.first_name} ${job.customer.last_name}`;
+    }
+    return "Unknown";
+  }
+
+  // ---------------------------------------------------------------------------
+  // Render
+  // ---------------------------------------------------------------------------
+
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900">Weekly Routes</h2>
+        <h2 className="text-2xl font-bold text-gray-900">Route Planner</h2>
         <p className="text-sm text-gray-500">
-          Neighborhoods clustered to save fuel and time
+          Organize and optimize your daily route
         </p>
       </div>
 
-      {/* Route cards */}
-      <div className="space-y-6">
-        {routes.map((route) => (
-          <div
-            key={route.day}
-            className="overflow-hidden rounded-xl border border-gray-200 bg-white"
-          >
-            {/* Route header */}
-            <div className="flex items-center gap-4 border-b border-gray-100 bg-gray-50 px-6 py-4">
-              <div className={`h-3 w-3 rounded-full ${route.color}`} />
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900">
-                  {route.day}
-                </h3>
-                <p className="text-sm text-gray-500">{route.area}</p>
+      {/* Split view */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_1fr]">
+        {/* Left panel - Job list */}
+        <div className="space-y-4">
+          {/* Date picker & actions */}
+          <Card>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="mb-1 block text-xs font-medium text-gray-700">
+                  Date
+                </label>
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                />
               </div>
-              <div className="flex items-center gap-4 text-sm text-gray-500">
-                <span className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  {route.homes.length} stops
-                </span>
-              </div>
-            </div>
-
-            {/* Stops */}
-            <div className="divide-y divide-gray-50">
-              {route.homes.map((home, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-4 px-6 py-3 hover:bg-gray-50"
+              <div className="flex gap-2">
+                <Button
+                  onClick={optimizeRoute}
+                  disabled={optimizing || jobs.length === 0}
+                  className="bg-green-brand text-white hover:bg-forest-light"
                 >
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-xs font-bold text-gray-500">
-                    {i + 1}
+                  {optimizing ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Navigation className="mr-1 h-4 w-4" />
+                  )}
+                  Optimize Route
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={saveOrder}
+                  disabled={saving || jobs.length === 0}
+                >
+                  {saving ? (
+                    <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="mr-1 h-4 w-4" />
+                  )}
+                  Save Order
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-5 w-5 animate-spin text-green-brand" />
+              <span className="ml-2 text-sm text-gray-500">
+                Loading jobs...
+              </span>
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {error}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchJobs}
+                className="ml-2"
+              >
+                <RotateCcw className="mr-1 h-3 w-3" />
+                Retry
+              </Button>
+            </div>
+          )}
+
+          {/* Job list */}
+          {!loading && !error && (
+            <div className="space-y-2">
+              {jobs.length === 0 && (
+                <div className="rounded-xl border border-gray-200 bg-white py-12 text-center">
+                  <MapPin className="mx-auto h-8 w-8 text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-500">
+                    No jobs for{" "}
+                    {format(parseISO(selectedDate), "EEEE, MMMM d")}
+                  </p>
+                </div>
+              )}
+              {jobs.map((job, idx) => (
+                <div
+                  key={job.id}
+                  draggable
+                  onDragStart={() => handleDragStart(idx)}
+                  onDragOver={(e) => handleDragOver(e, idx)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center gap-3 rounded-xl border bg-white px-4 py-3 transition-colors ${
+                    dragIdx === idx
+                      ? "border-green-brand bg-green-pale/30"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="cursor-grab text-gray-400 active:cursor-grabbing">
+                    <GripVertical className="h-5 w-5" />
                   </div>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">
-                      {home.name}
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-green-brand text-xs font-bold text-white">
+                    {idx + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900">
+                      {customerName(job)}
                     </p>
-                    <div className="flex items-center gap-1 text-xs text-gray-500">
-                      <MapPin className="h-3 w-3" />
-                      {home.address}
-                    </div>
+                    <p className="text-xs text-gray-500 truncate">
+                      {job.customer?.address ?? "No address"}
+                    </p>
+                    {job.customer?.lat && job.customer?.lng && (
+                      <p className="text-[10px] text-gray-400">
+                        {job.customer.lat.toFixed(4)},{" "}
+                        {job.customer.lng.toFixed(4)}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1 text-xs text-gray-500">
-                      <Clock className="h-3 w-3" />
-                      {home.time}
-                    </span>
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">
-                      {home.size}
-                    </span>
-                  </div>
+                  <Badge
+                    className={
+                      job.status === "scheduled"
+                        ? "bg-blue-100 text-blue-700"
+                        : job.status === "completed"
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-gray-100 text-gray-500"
+                    }
+                  >
+                    {job.status}
+                  </Badge>
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Right panel - Map placeholder */}
+        <div className="hidden lg:block">
+          <div className="flex h-full min-h-[500px] flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 bg-gray-50">
+            <MapPin className="h-12 w-12 text-gray-300" />
+            <p className="mt-3 text-sm font-medium text-gray-500">
+              Map View
+            </p>
+            <p className="mt-1 max-w-[240px] text-center text-xs text-gray-400">
+              Configure Google Maps API key to enable interactive map view with
+              route visualization.
+            </p>
+            <div className="mt-4 rounded-lg bg-gray-100 px-3 py-2 text-xs font-mono text-gray-500">
+              NEXT_PUBLIC_GOOGLE_MAPS_KEY
+            </div>
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

@@ -11,7 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Lindale Lawn Co. | Professional Lawn Care in Lindale, TX",
+  title: "Lawn & Order | Professional Lawn Care in Lindale, TX",
   description:
     "Professional lawn mowing, edging, and maintenance services in Lindale, TX. Insured, reliable, and affordable. Call for a free estimate today!",
 };

@@ -24,7 +24,7 @@ export default function Navbar() {
             </div>
             <div>
               <span className="text-xl font-bold text-forest">
-                Lindale Lawn Co.
+                Lawn & Order
               </span>
               <span className="hidden text-xs text-gray-500 sm:block">
                 Professional Lawn Care

@@ -9,7 +9,7 @@ export default function About() {
           <div className="relative h-[500px] overflow-hidden rounded-2xl sm:h-[600px]">
             <Image
               src="/images/team.jpg"
-              alt="The team behind Lindale Lawn Co."
+              alt="The team behind Lawn & Order"
               fill
               className="object-cover"
             />

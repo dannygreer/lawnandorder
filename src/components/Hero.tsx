@@ -39,7 +39,7 @@ export default function Hero() {
         <div>
           <div className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-sm font-medium text-green-200 backdrop-blur-sm">
             <Star className="h-4 w-4 fill-gold text-gold" />
-            Trusted Lawn Care in Lindale, TX
+            Trusted Lawn Care in East Texas
           </div>
 
           <h1 className="mt-6 text-5xl font-extrabold leading-tight text-white sm:text-6xl lg:text-7xl">
@@ -50,7 +50,7 @@ export default function Hero() {
 
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-green-100/90">
             Professional mowing, edging, and lawn maintenance for homes across
-            Lindale. Insured, dependable, and dedicated to making your yard the
+            Lindale and surrounding areas. Insured, dependable, and dedicated to making your yard the
             best on the block.
           </p>
 

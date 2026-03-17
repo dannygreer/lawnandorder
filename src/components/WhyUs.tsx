@@ -24,7 +24,7 @@ const reasons = [
   {
     icon: Smile,
     title: "Responsible & Trustworthy",
-    description: "Dependable crew you can count on every single week.",
+    description: "Dependable crew you can count on.",
   },
   {
     icon: MapPin,

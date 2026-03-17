@@ -56,7 +56,7 @@ export default function Contact() {
                 <div>
                   <p className="text-sm text-gray-500">Email us</p>
                   <p className="text-lg font-semibold text-forest">
-                    hello@lindalelawnco.com
+                    hello@lawnandorderETX.com
                   </p>
                 </div>
               </div>

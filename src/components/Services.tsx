@@ -38,8 +38,8 @@ export default function Services() {
             Our Services
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-lg text-gray-600">
-            Everything you need to keep your lawn looking its best, from weekly
-            mowing to detailed edging and full cleanup.
+            Everything you need to keep your lawn looking its best, from mowing
+            to detailed edging and full cleanup.
           </p>
         </div>
 
