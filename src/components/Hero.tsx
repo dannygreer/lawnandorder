@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { Phone, Shield, Clock, Star, Send } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 export default function Hero() {
   const [form, setForm] = useState({
@@ -120,15 +121,10 @@ export default function Hero() {
                 />
               </div>
               <div>
-                <input
-                  type="text"
+                <AddressAutocomplete
                   required
-                  placeholder="Property Address"
                   value={form.address}
-                  onChange={(e) =>
-                    setForm({ ...form, address: e.target.value })
-                  }
-                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-brand focus:ring-2 focus:ring-green-brand/20 focus:outline-none"
+                  onChange={(val) => setForm({ ...form, address: val })}
                 />
               </div>
               <div>

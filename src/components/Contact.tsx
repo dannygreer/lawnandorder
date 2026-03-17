@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
+import AddressAutocomplete from "@/components/AddressAutocomplete";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -155,13 +156,12 @@ export default function Contact() {
                 >
                   Property Address *
                 </label>
-                <input
-                  type="text"
+                <AddressAutocomplete
                   id="address"
                   required
                   value={formData.address}
-                  onChange={(e) =>
-                    setFormData({ ...formData, address: e.target.value })
+                  onChange={(val) =>
+                    setFormData({ ...formData, address: val })
                   }
                   className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-green-brand focus:ring-2 focus:ring-green-brand/20 focus:outline-none"
                   placeholder="123 Main St, Lindale, TX"
