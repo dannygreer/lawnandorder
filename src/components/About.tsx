@@ -6,12 +6,13 @@ export default function About() {
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-12 lg:grid-cols-2 lg:gap-16">
           {/* Left — Photo */}
-          <div className="relative h-[500px] overflow-hidden rounded-2xl sm:h-[600px]">
+          <div className="overflow-hidden rounded-2xl">
             <Image
               src="/images/team.jpg"
               alt="The team behind Lawn & Order"
-              fill
-              className="object-cover"
+              width={1000}
+              height={1200}
+              className="w-full h-auto"
             />
           </div>
 
@@ -24,22 +25,34 @@ export default function About() {
               Meet the Crew
             </h2>
             <p className="mt-6 text-lg leading-relaxed text-gray-600">
-              Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
-              eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim
-              ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut
-              aliquip ex ea commodo consequat.
+              Howdy! We&apos;re two local high school students who started this
+              lawn care business to earn money and learn what it takes to run a
+              successful operation. As Christians, we approach our work with
+              honesty, reliability, and genuine respect for the people we serve.
+              What started as a simple idea has grown into something we&apos;re
+              proud of &mdash; a chance to build real-world skills, develop a
+              strong work ethic, and serve our community by keeping local lawns
+              looking their best.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-gray-600">
-              Duis aute irure dolor in reprehenderit in voluptate velit esse
-              cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat
-              cupidatat non proident, sunt in culpa qui officia deserunt mollit
-              anim id est laborum.
+              <strong className="text-forest">Jack:</strong> I&apos;m
+              homeschooled and passionate about giving back. I enjoy mowing for
+              veterans, volunteering at church events, and being a positive
+              presence in my community. This business is teaching me skills
+              I&apos;ll carry for life &mdash; scheduling, accountability,
+              initiative, and responsibility.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-gray-600">
-              Sed ut perspiciatis unde omnis iste natus error sit voluptatem
-              accusantium doloremque laudantium, totam rem aperiam, eaque ipsa
-              quae ab illo inventore veritatis et quasi architecto beatae vitae
-              dicta sunt explicabo.
+              <strong className="text-forest">Everett:</strong> I attend Lindale
+              High School and see this business as a chance to learn what it
+              really takes to run something from the ground up. I want to use my
+              time wisely before college and prove to my family, my community,
+              and God that I&apos;m someone who shows up, works hard, and takes
+              initiative.
+            </p>
+            <p className="mt-4 text-lg leading-relaxed text-gray-600">
+              We&apos;re grateful for every yard we get to care for. Thanks for
+              supporting young, local entrepreneurs!
             </p>
           </div>
         </div>

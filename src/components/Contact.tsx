@@ -14,10 +14,34 @@ export default function Contact() {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: wire up to backend
-    alert("Thank you! We'll be in touch within 24 hours.");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          address: formData.address,
+          lotSize: formData.lotSize,
+        }),
+      });
+      if (res.ok) {
+        alert("Thank you! We'll be in touch within 24 hours.");
+        setFormData({ name: "", phone: "", email: "", address: "", lotSize: "", message: "" });
+      } else {
+        alert("Something went wrong. Please try again or call us directly.");
+      }
+    } catch {
+      alert("Something went wrong. Please try again or call us directly.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -81,7 +105,7 @@ export default function Contact() {
                 Accepted Payment Methods
               </p>
               <p className="mt-2 text-sm text-gray-600">
-                Cash &bull; Check &bull; Venmo &bull; Cash App &bull; Zelle
+                Credit Card &bull; Cash &bull; Check &bull; Venmo &bull; Cash App
               </p>
             </div>
           </div>

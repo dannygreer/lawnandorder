@@ -27,6 +27,7 @@ export default function PaymentSetupPage() {
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState<CustomerInfo | null>(null);
   const [frequency, setFrequency] = useState("weekly");
+  const [payMethod, setPayMethod] = useState<"card" | "cash_check">("card");
   const [authorized, setAuthorized] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -62,8 +63,9 @@ export default function PaymentSetupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentMethodId: "pm_placeholder", // Replace with Stripe Elements
+          paymentMethodId: payMethod === "card" ? "pm_placeholder" : null, // Replace with Stripe Elements for card
           frequency,
+          payMethod,
         }),
       });
 
@@ -115,8 +117,8 @@ export default function PaymentSetupPage() {
               You&apos;re All Set!
             </CardTitle>
             <CardDescription className="text-base">
-              Your payment info is on file. We&apos;ll send you a receipt every
-              time we complete your lawn.
+              Your service preferences are saved. We&apos;ll be in touch to
+              schedule your first visit!
             </CardDescription>
           </CardHeader>
         </Card>
@@ -167,6 +169,7 @@ export default function PaymentSetupPage() {
                   { value: "weekly", label: "Weekly" },
                   { value: "biweekly", label: "Bi-weekly (every other week)" },
                   { value: "monthly", label: "Monthly" },
+                  { value: "on_demand", label: "On Demand (call to schedule)" },
                 ].map((opt) => (
                   <label
                     key={opt.value}
@@ -190,18 +193,76 @@ export default function PaymentSetupPage() {
               </div>
             </div>
 
-            {/* Stripe Elements placeholder */}
+            {/* Payment method selection */}
             <div>
-              <Label className="text-sm font-semibold">Payment Details</Label>
-              <div className="mt-2 rounded-lg border border-gray-200 bg-white p-4">
-                <p className="text-center text-sm text-gray-400">
-                  Stripe card input will appear here once API keys are
-                  configured.
-                </p>
+              <Label className="text-sm font-semibold">
+                Payment Method
+              </Label>
+              <div className="mt-3 space-y-2">
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                    payMethod === "card"
+                      ? "border-green-brand bg-green-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payMethod"
+                    value="card"
+                    checked={payMethod === "card"}
+                    onChange={() => setPayMethod("card")}
+                    className="accent-green-brand"
+                  />
+                  <span className="text-sm font-medium">
+                    Credit / Debit Card
+                  </span>
+                </label>
+                <label
+                  className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3 transition-colors ${
+                    payMethod === "cash_check"
+                      ? "border-green-brand bg-green-50"
+                      : "border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="payMethod"
+                    value="cash_check"
+                    checked={payMethod === "cash_check"}
+                    onChange={() => setPayMethod("cash_check")}
+                    className="accent-green-brand"
+                  />
+                  <span className="text-sm font-medium">
+                    Cash or Check (pay after each service)
+                  </span>
+                </label>
               </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Your card will be charged after each completed service. You will
-                receive an SMS and/or email receipt every time.
+            </div>
+
+            {/* Stripe Elements placeholder — only show for card */}
+            {payMethod === "card" && (
+              <div>
+                <Label className="text-sm font-semibold">Card Details</Label>
+                <div className="mt-2 rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="text-center text-sm text-gray-400">
+                    Stripe card input will appear here once API keys are
+                    configured.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Security note */}
+            <div className="rounded-lg bg-green-50 p-3 text-xs text-gray-600">
+              <p className="font-semibold text-forest">
+                Your information is safe
+              </p>
+              <p className="mt-1">
+                Your credit card information is not stored or shared by{" "}
+                {businessName}. No charge will be made until a service is
+                completed. You will receive a receipt after each successful yard
+                service.
               </p>
             </div>
 
@@ -214,9 +275,9 @@ export default function PaymentSetupPage() {
                 className="mt-0.5 accent-green-brand"
               />
               <span className="text-xs text-gray-600">
-                I authorize {businessName} to charge the card above for each
-                completed lawn service at the rate of ${customer?.serviceCost}{" "}
-                per visit.
+                {payMethod === "card"
+                  ? `I authorize ${businessName} to charge my card after each completed lawn service at the rate of $${customer?.serviceCost} per visit.`
+                  : `I agree to pay ${businessName} by cash or check after each completed lawn service at the rate of $${customer?.serviceCost} per visit.`}
               </span>
             </label>
 
@@ -228,7 +289,7 @@ export default function PaymentSetupPage() {
               {submitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Save Payment Info
+              {payMethod === "card" ? "Save Payment Info" : "Confirm Service Setup"}
             </Button>
           </form>
         </CardContent>

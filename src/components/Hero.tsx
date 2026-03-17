@@ -15,9 +15,28 @@ export default function Hero() {
     message: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert("Thank you! We'll be in touch within 24 hours.");
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      if (res.ok) {
+        alert("Thank you! We'll be in touch within 24 hours.");
+        setForm({ name: "", phone: "", email: "", address: "", lotSize: "", message: "" });
+      } else {
+        alert("Something went wrong. Please try again or call us directly.");
+      }
+    } catch {
+      alert("Something went wrong. Please try again or call us directly.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (

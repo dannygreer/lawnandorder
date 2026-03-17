@@ -7,6 +7,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import {
   LayoutDashboard,
   Users,
+  UserPlus,
   DollarSign,
   MapPin,
   Calendar,
@@ -21,6 +22,7 @@ import { Toaster } from "@/components/ui/sonner";
 
 const navItems = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { href: "/admin/leads", label: "Leads", icon: UserPlus },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/schedule", label: "Schedule", icon: Calendar },
   { href: "/admin/routes", label: "Routes", icon: MapPin },

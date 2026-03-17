@@ -9,7 +9,7 @@ export async function POST(
 ) {
   const { token } = await params;
   const supabase = createAdminClient();
-  const { paymentMethodId, frequency } = await req.json();
+  const { paymentMethodId, frequency, payMethod } = await req.json();
 
   // Validate token
   const { data: customer, error } = await supabase
@@ -31,45 +31,49 @@ export async function POST(
   }
 
   try {
-    // Create or retrieve Stripe customer
-    let stripeCustomerId = customer.stripe_customer_id;
-    if (!stripeCustomerId) {
-      const stripeCustomer = await stripe.customers.create({
-        name: `${customer.first_name} ${customer.last_name}`,
-        phone: customer.phone,
-        email: customer.email || undefined,
-        metadata: { supabase_id: customer.id },
+    const updateData: Record<string, any> = {
+      service_frequency: frequency,
+      payment_confirmed_at: new Date().toISOString(),
+    };
+
+    // Only set up Stripe if paying by card
+    if (payMethod === "card" && paymentMethodId && paymentMethodId !== "pm_placeholder") {
+      let stripeCustomerId = customer.stripe_customer_id;
+      if (!stripeCustomerId) {
+        const stripeCustomer = await stripe.customers.create({
+          name: `${customer.first_name} ${customer.last_name}`,
+          phone: customer.phone,
+          email: customer.email || undefined,
+          metadata: { supabase_id: customer.id },
+        });
+        stripeCustomerId = stripeCustomer.id;
+      }
+
+      await stripe.paymentMethods.attach(paymentMethodId, {
+        customer: stripeCustomerId,
       });
-      stripeCustomerId = stripeCustomer.id;
+
+      await stripe.customers.update(stripeCustomerId, {
+        invoice_settings: { default_payment_method: paymentMethodId },
+      });
+
+      updateData.stripe_customer_id = stripeCustomerId;
+      updateData.stripe_payment_method_id = paymentMethodId;
     }
-
-    // Attach payment method
-    await stripe.paymentMethods.attach(paymentMethodId, {
-      customer: stripeCustomerId,
-    });
-
-    // Set as default
-    await stripe.customers.update(stripeCustomerId, {
-      invoice_settings: { default_payment_method: paymentMethodId },
-    });
 
     // Update customer record
     await supabase
       .from("customers")
-      .update({
-        stripe_customer_id: stripeCustomerId,
-        stripe_payment_method_id: paymentMethodId,
-        service_frequency: frequency,
-        payment_confirmed_at: new Date().toISOString(),
-      })
+      .update(updateData)
       .eq("id", customer.id);
 
     // Log communication
+    const method = payMethod === "card" ? "Credit card saved" : "Cash/check selected";
     await supabase.from("communications").insert({
       customer_id: customer.id,
       type: "payment_link",
       direction: "outbound",
-      content: "Payment method saved successfully",
+      content: `Service preferences confirmed: ${frequency}, ${method}`,
       status: "sent",
     });
 
