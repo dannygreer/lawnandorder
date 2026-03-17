@@ -26,6 +26,19 @@ export const metadata: Metadata = {
   title: "Lawn & Order | Professional Lawn Care in Lindale, TX",
   description:
     "Professional lawn mowing, edging, and maintenance services in Lindale, TX. Insured, reliable, and affordable. Call for a free estimate today!",
+  icons: {
+    icon: "/favicon.png",
+  },
+  openGraph: {
+    title: "Lawn & Order | Professional Lawn Care in Lindale, TX",
+    description:
+      "Mowing, edging, and lawn maintenance for homes across Lindale and surrounding areas.",
+    images: [{ url: "/og-image.jpg", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    images: ["/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({

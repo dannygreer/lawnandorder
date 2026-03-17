@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { Phone, Shield, Clock, Star, Send } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { formatPhone } from "@/lib/format-phone";
 
 export default function Hero() {
   const [form, setForm] = useState({
@@ -62,19 +63,18 @@ export default function Hero() {
             Trusted Lawn Care in East Texas
           </div>
 
-          <h1 className="mt-6 text-5xl font-extrabold leading-tight text-white sm:text-6xl lg:text-7xl">
-            Your Lawn,
+          <h1 className="mt-6 text-3xl font-extrabold leading-tight text-white sm:text-5xl">
+            The Verdict Is In:
             <br />
-            <span className="text-lime-accent">Our Pride.</span>
+            <span style={{ color: "#7BF1A7" }}>Best Lawn on the Block</span>
           </h1>
 
           <p className="mt-6 max-w-lg text-lg leading-relaxed text-green-100/90">
-            Professional mowing, edging, and lawn maintenance for homes across
-            Lindale and surrounding areas. Insured, dependable, and dedicated to making your yard the
-            best on the block.
+            Mowing, edging, and lawn maintenance for homes across
+            Lindale and surrounding areas. Insured, dependable, and dedicated to keeping your yard looking its best.
           </p>
 
-          <div className="mt-8 flex flex-col gap-4 sm:flex-row">
+          <div className="mt-8 hidden sm:flex flex-col gap-4 sm:flex-row">
             <a
               href="tel:+19035551234"
               className="inline-flex items-center justify-center gap-2 rounded-full border-2 border-white/30 px-8 py-4 text-lg font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10"
@@ -88,15 +88,15 @@ export default function Hero() {
           <div className="mt-12 flex flex-wrap gap-6">
             <div className="flex items-center gap-2 text-sm text-green-200">
               <Shield className="h-5 w-5 text-lime-accent" />
-              Fully Insured
+              Insured
             </div>
             <div className="flex items-center gap-2 text-sm text-green-200">
               <Clock className="h-5 w-5 text-lime-accent" />
-              Weekly Service
+              Flexible Scheduling
             </div>
             <div className="flex items-center gap-2 text-sm text-green-200">
               <Star className="h-5 w-5 text-lime-accent" />
-              Local & Trusted
+              Local
             </div>
           </div>
         </div>
@@ -126,9 +126,9 @@ export default function Hero() {
                 <input
                   type="tel"
                   required
-                  placeholder="Phone"
+                  placeholder="(903) 555-1234"
                   value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  onChange={(e) => setForm({ ...form, phone: formatPhone(e.target.value) })}
                   className="w-full rounded-lg border border-gray-300 px-4 py-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-green-brand focus:ring-2 focus:ring-green-brand/20 focus:outline-none"
                 />
                 <input
@@ -162,14 +162,24 @@ export default function Hero() {
               </div>
               <button
                 type="submit"
+                disabled={submitting}
                 className="flex w-full items-center justify-center gap-2 rounded-full bg-green-brand px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-forest-light"
               >
                 <Send className="h-4 w-4" />
-                Submit Request
+                {submitting ? "Submitting..." : "Submit Request"}
               </button>
             </form>
           </div>
         </div>
+
+        {/* Mobile-only Call Us Now — below the form */}
+        <a
+          href="tel:+19035551234"
+          className="col-span-full mt-0 inline-flex w-full items-center justify-center gap-2 rounded-full border-2 border-white/30 px-8 py-4 text-lg font-semibold text-white backdrop-blur-sm transition-colors hover:bg-white/10 sm:hidden"
+        >
+          <Phone className="h-5 w-5" />
+          Call Us Now
+        </a>
       </div>
 
     </section>

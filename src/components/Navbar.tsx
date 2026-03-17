@@ -19,7 +19,7 @@ export default function Navbar() {
               alt="Lawn & Order"
               width={120}
               height={63}
-              className="h-12 w-auto"
+              className="h-8 w-auto sm:h-12"
               priority
             />
           </Link>

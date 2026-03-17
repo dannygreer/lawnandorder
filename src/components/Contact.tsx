@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Phone, Mail, MapPin, Send } from "lucide-react";
 import AddressAutocomplete from "@/components/AddressAutocomplete";
+import { formatPhone } from "@/lib/format-phone";
 
 export default function Contact() {
   const [formData, setFormData] = useState({
@@ -147,7 +148,7 @@ export default function Contact() {
                     required
                     value={formData.phone}
                     onChange={(e) =>
-                      setFormData({ ...formData, phone: e.target.value })
+                      setFormData({ ...formData, phone: formatPhone(e.target.value) })
                     }
                     className="mt-1 block w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-green-brand focus:ring-2 focus:ring-green-brand/20 focus:outline-none"
                     placeholder="(903) 555-1234"
