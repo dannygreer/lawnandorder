@@ -16,20 +16,20 @@ export default function Footer() {
           </div>
 
           {/* Contact */}
-          <div>
+          <div className="text-right">
             <h4 className="text-sm font-semibold uppercase tracking-wider text-green-300">
               Contact Us
             </h4>
             <ul className="mt-4 space-y-3">
-              <li className="flex items-center gap-3 text-sm text-green-100">
+              <li className="flex items-center justify-end gap-3 text-sm text-green-100">
                 <Phone className="h-4 w-4 shrink-0 text-green-300" />
                 (903) 555-1234
               </li>
-              <li className="flex items-center gap-3 text-sm text-green-100">
+              <li className="flex items-center justify-end gap-3 text-sm text-green-100">
                 <Mail className="h-4 w-4 shrink-0 text-green-300" />
                 hello@lawnandorderETX.com
               </li>
-              <li className="flex items-center gap-3 text-sm text-green-100">
+              <li className="flex items-center justify-end gap-3 text-sm text-green-100">
                 <MapPin className="h-4 w-4 shrink-0 text-green-300" />
                 Lindale, TX
               </li>
